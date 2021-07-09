@@ -1,0 +1,176 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: cascadenodemanagers.derecho.poanpan
+spec:
+  group: derecho.poanpan
+  names:
+    kind: CascadeNodeManager
+    listKind: CascadeNodeManagerList
+    plural: cascadenodemanagers
+    singular: cascadenodemanager
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CascadeNodeManager stores the node assingment policy defined
+          by user and maintains current node status
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CascadeNodeManagerSpec defines the desired state of CascadeNodeManager
+            properties:
+              typesSpec:
+                items:
+                  description: CascadeTypeSpec wraps configuration for each subgroup
+                    for a type
+                  properties:
+                    layout:
+                      items:
+                        description: CascadeSubgroupLayoutSpec wraps configuration
+                          for each shard in a subgroup
+                        properties:
+                          delivery_modes_by_shard:
+                            description: delivery_modes_by_shard is deliveryMode for
+                              each shard
+                            items:
+                              type: string
+                            type: array
+                          max_nodes_by_shard:
+                            description: max_nodes_by_shard is maxNodes for each shard
+                            items:
+                              type: integer
+                            type: array
+                          min_nodes_by_shard:
+                            description: min_nodes_by_shard is minNodes for each shard
+                            items:
+                              type: integer
+                            type: array
+                          profiles_by_shard:
+                            description: profiles_by_shard is profile for each shard
+                            items:
+                              type: string
+                            type: array
+                          reserved_node_id_by_shard:
+                            description: reserved_node_id_by_shard is reservedNodeId
+                              for each shard, not mandatory
+                            items:
+                              items:
+                                type: integer
+                              type: array
+                            type: array
+                        required:
+                        - delivery_modes_by_shard
+                        - max_nodes_by_shard
+                        - min_nodes_by_shard
+                        - profiles_by_shard
+                        type: object
+                      type: array
+                    type_alias:
+                      description: typeAlias is the name for a type
+                      type: string
+                  required:
+                  - layout
+                  - type_alias
+                  type: object
+                type: array
+            required:
+            - typesSpec
+            type: object
+          status:
+            properties:
+              leaderID:
+                description: leaderID is the leader id for this Cascade
+                type: integer
+              leastRequiredLogicalNodes:
+                description: leastRequiredLogicalNodes is the sum of min_nodes for
+                  all shards
+                type: integer
+              maxLogicalNodes:
+                description: maxLogicalNodes is the sum of min_nodes for all shards
+                type: integer
+              maxReservedNodeId:
+                description: maxReservedNodeId is the max reserved node id calculated
+                  from configMap
+                type: integer
+              nextNodeIdToAssign:
+                description: nextNodeIdToAssign is the next non-reserved node id to
+                  assign
+                type: integer
+              typesStatus:
+                items:
+                  description: CascadeTypeStatus maintains Cascade node allocation
+                    information during runtime
+                  properties:
+                    subgroupStatus:
+                      items:
+                        description: CascadeSubgroupStatus wraps status information
+                          for shards in a subgroup
+                        properties:
+                          assignedNodeIdByShard:
+                            description: assignedNodeIdByShard is assignedNodeId for
+                              each shard, omitted in spec, maintained in status
+                            items:
+                              items:
+                                type: integer
+                              type: array
+                            type: array
+                          shardCount:
+                            description: shardCount is the number of shards in this
+                              subgroup
+                            type: integer
+                          sizeByShard:
+                            description: sizeByShard is the current size of every
+                              shard in current subgroup
+                            items:
+                              type: integer
+                            type: array
+                        type: object
+                      type: array
+                    typeAlias:
+                      description: typeAlias is the name for a type
+                      type: string
+                  required:
+                  - subgroupStatus
+                  - typeAlias
+                  type: object
+                type: array
+            required:
+            - leaderID
+            - leastRequiredLogicalNodes
+            - maxLogicalNodes
+            - maxReservedNodeId
+            - nextNodeIdToAssign
+            - typesStatus
+            type: object
+        required:
+        - spec
+        - status
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

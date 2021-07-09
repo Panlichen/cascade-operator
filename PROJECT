@@ -1,0 +1,28 @@
+domain: poanpan
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: cascade-operator
+repo: github.com/Panlichen/cascade-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: poanpan
+  group: derecho
+  kind: Cascade
+  path: github.com/Panlichen/cascade-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: poanpan
+  group: derecho
+  kind: CascadeNodeManager
+  path: github.com/Panlichen/cascade-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"

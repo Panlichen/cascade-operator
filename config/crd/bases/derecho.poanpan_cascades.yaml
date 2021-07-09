@@ -1,0 +1,102 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: cascades.derecho.poanpan
+spec:
+  group: derecho.poanpan
+  names:
+    kind: Cascade
+    listKind: CascadeList
+    plural: cascades
+    singular: cascade
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Cascade is the Schema for the cascades API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CascadeSpec defines the desired state of Cascade
+            properties:
+              clientSize:
+                description: clientSize is the desired client number of a Cascade
+                  Group
+                type: integer
+              configMapFinder:
+                description: CascadeConfigMapFinder is where the controller gets layout
+                  info for a Cascade instance
+                properties:
+                  cfgTemplateItem:
+                    description: cfgTemplateItem indicates the name of the derecho.cfg.template
+                      file item inside the ConfigMap
+                    type: string
+                  jsonItem:
+                    description: jsonItem indicates the name of the layout json file
+                      item inside the ConfigMap
+                    type: string
+                  name:
+                    description: name indicates the name of ConfigMap provided by
+                      the user
+                    type: string
+                required:
+                - cfgTemplateItem
+                - jsonItem
+                - name
+                type: object
+              logicalServerSize:
+                description: logicalServerSize is the desired logical server number
+                  of a Cascade Group
+                type: integer
+            required:
+            - clientSize
+            - configMapFinder
+            - logicalServerSize
+            type: object
+          status:
+            description: CascadeStatus defines the observed state of Cascade
+            properties:
+              clientSize:
+                description: clientSize is current number of client nodes.
+                type: integer
+              logicalServerSize:
+                description: logicalServerSize is the logical number of server nodes,
+                  which means that overlapped nodes are counted for each appearance.
+                type: integer
+              nodes:
+                description: Nodes are the names of the cascade pods
+                items:
+                  type: string
+                type: array
+              physicalServerSize:
+                description: physicalServerSize is the physical number of server nodes.
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

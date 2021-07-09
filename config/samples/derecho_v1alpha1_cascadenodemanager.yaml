@@ -1,0 +1,7 @@
+apiVersion: derecho.poanpan/v1alpha1
+kind: CascadeNodeManager
+metadata:
+  name: cascadenodemanager-sample
+spec:
+  # Add fields here
+  foo: bar
