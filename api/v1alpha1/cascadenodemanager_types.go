@@ -101,7 +101,7 @@ type CascadeNodeManager struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   CascadeNodeManagerSpec   `json:"spec"`
-	Status CascadeNodeManagerStatus `json:"status"`
+	Status CascadeNodeManagerStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true

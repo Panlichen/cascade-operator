@@ -93,39 +93,6 @@ func (r *CascadeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// Check if the Cascade instance is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
-	isCascadeMarkedToBeDeleted := cascade.GetDeletionTimestamp() != nil
-	if isCascadeMarkedToBeDeleted {
-		if controllerutil.ContainsFinalizer(cascade, cascadeFinalizer) {
-			// Run finalization logic for cascadeFinalizer. If the
-			// finalization logic fails, don't remove the finalizer so
-			// that we can retry during the next reconciliation.
-			if err := r.finalizeCascade(ctx, log, cascade); err != nil {
-				return ctrl.Result{}, err
-			}
-			// Remove cascadeFinalizer. Once all finalizers have been
-			// removed, the object will be deleted.
-			controllerutil.RemoveFinalizer(cascade, cascadeFinalizer)
-			err := r.Update(ctx, cascade)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-		return ctrl.Result{}, err
-		// TODO: delete corresponding CascadeNodeManager
-	}
-
-	// Add finalizer for this CR
-	if !controllerutil.ContainsFinalizer(cascade, cascadeFinalizer) {
-		controllerutil.AddFinalizer(cascade, cascadeFinalizer)
-		err = r.Update(ctx, cascade)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("Add Finalizer for cascade %v failed", req.NamespacedName))
-			return ctrl.Result{}, err
-		}
-	}
-
 	if cascade.Status.LogicalServerSize == 0 {
 		// this means we are creating the Cascade for the first time, we need to create NodeManager structure manually.
 
@@ -148,15 +115,63 @@ func (r *CascadeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		log.Info("r.checkLogicalNodesRequest done")
 		// TODO: create the CascadeNodeManager CR, manage status with Conditions. Tutorial: Note The Node field is just to illustrate an example of a Status field. In real cases, it would be recommended to use [Conditions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties).
 
-		err = r.Create(ctx, r.NodeManagerMap[req.Name])
+		tempCascadeNodeManager := &derechov1alpha1.CascadeNodeManager{}
+		r.Get(ctx, req.NamespacedName, tempCascadeNodeManager)
+		var nmError error
+		if err == nil {
+			// TODO: FUCKING WHY??
+			log.Info(fmt.Sprintf("CascadeNodeManager CR %v somehow exists, delete it.", req.NamespacedName))
+			log.Info(fmt.Sprintf("the existing CascadeNodeManager resource is %+v", tempCascadeNodeManager))
+			nmError = r.Delete(ctx, tempCascadeNodeManager)
+		}
+		nmError = r.Create(ctx, r.NodeManagerMap[req.Name])
+
+		if nmError != nil {
+			log.Error(nmError, fmt.Sprintf("Fail to create CR CascadeNodeManager %v", req.NamespacedName))
+			return ctrl.Result{}, nmError
+		}
+
+		err = r.Status().Update(ctx, r.NodeManagerMap[req.Name])
 		if err != nil {
-			log.Error(err, fmt.Sprintf("Fail to create CR CascadeNodeManager %v", req.NamespacedName))
+			log.Error(err, fmt.Sprintf("Fail to update CR CascadeNodeManager's status %v", req.NamespacedName))
 			return ctrl.Result{}, err
-		} else {
-			log.Info(fmt.Sprintf("create CR CascadeNodeManager %v without error", req.NamespacedName))
-			tempCascadeNodeManager := &derechov1alpha1.CascadeNodeManager{}
-			r.Get(ctx, req.NamespacedName, tempCascadeNodeManager)
-			log.Info(fmt.Sprintf("the CascadeNodeManager resource is %+v", tempCascadeNodeManager))
+		}
+		log.Info(fmt.Sprintf("Create CR CascadeNodeManager %v with initial status", req.NamespacedName))
+	}
+
+	// Check if the Cascade instance is marked to be deleted, which is
+	// indicated by the deletion timestamp being set.
+	// TODO: May need to decide adjust the position logic about finalizer
+	isCascadeMarkedToBeDeleted := cascade.GetDeletionTimestamp() != nil
+	if isCascadeMarkedToBeDeleted {
+		log.Info(fmt.Sprintf("Invoke finaller for Cascade %v", req.NamespacedName))
+		if controllerutil.ContainsFinalizer(cascade, cascadeFinalizer) {
+			// Run finalization logic for cascadeFinalizer. If the
+			// finalization logic fails, don't remove the finalizer so
+			// that we can retry during the next reconciliation.
+			if err := r.finalizeCascade(ctx, log, cascade); err != nil {
+				return ctrl.Result{}, err
+			}
+			// Remove cascadeFinalizer. Once all finalizers have been
+			// removed, the object will be deleted.
+			controllerutil.RemoveFinalizer(cascade, cascadeFinalizer)
+			err := r.Update(ctx, cascade)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, err
+		// TODO: delete corresponding CascadeNodeManager
+	}
+
+	// Add finalizer for this CR
+	if !controllerutil.ContainsFinalizer(cascade, cascadeFinalizer) {
+		log.Info(fmt.Sprintf("Add finaller %v to Cascade %v", cascadeFinalizer, req.NamespacedName))
+		controllerutil.AddFinalizer(cascade, cascadeFinalizer)
+		err = r.Update(ctx, cascade)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("Add Finalizer for cascade %v failed", req.NamespacedName))
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -219,6 +234,7 @@ func (r *CascadeReconciler) finalizeCascade(ctx context.Context, log logr.Logger
 		}
 		log.Info(fmt.Sprintf("Delete pod %v", namespacedName))
 	}
+
 	headlessServiceToDelete := &v1.Service{}
 	namespacedName := types.NamespacedName{Name: cascade.Name, Namespace: cascade.Namespace}
 	err := r.Get(ctx, namespacedName, headlessServiceToDelete)
@@ -227,10 +243,23 @@ func (r *CascadeReconciler) finalizeCascade(ctx context.Context, log logr.Logger
 	}
 	err = r.Delete(ctx, headlessServiceToDelete)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Fail to delete the headless service to delete %v", namespacedName))
+		log.Error(err, fmt.Sprintf("Fail to delete the headless service %v", namespacedName))
 		return err
 	}
 	log.Info(fmt.Sprintf("Delete headless Service %v", namespacedName))
+
+	cascadeNodeManager := &derechov1alpha1.CascadeNodeManager{}
+	err = r.Get(ctx, namespacedName, cascadeNodeManager)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Fail to get the cascadeNodeManager to delete %v, it somehow has already gone", namespacedName))
+		return nil
+	}
+	err = r.Delete(ctx, cascadeNodeManager)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Fail to delete the cascadeNodeManager %v", namespacedName))
+		return err
+	}
+	log.Info(fmt.Sprintf("Delete cascadeNodeManager %v", namespacedName))
 
 	return nil
 }
@@ -375,8 +404,9 @@ func (r *CascadeReconciler) createPods(ctx context.Context, log logr.Logger, cre
 
 func getContainers(leader string, nodeID int, isServer bool) []v1.Container {
 
+	// TODO: /usr/sbin/sshd somehow sucks. not important now, just skip it
 	if isServer {
-		command := fmt.Sprintf("SELF_FULL=`cat /etc/hosts | grep $HOSTNAME | awk '{print $2}'` && LEADER=%v && LEADER_FULL=${SELF_FULL/$HOSTNAME/$LEADER} && bash scripts/config-cascade.sh $LEADER_FULL $SELF_FULL %v verbs `ibv_devices | grep mlx | awk '{print $1}'` && /usr/sbin/sshd && echo I am server && sleep 2592000", leader, nodeID)
+		command := fmt.Sprintf("SELF_FULL=`cat /etc/hosts | grep $HOSTNAME | awk '{print $2}'` && LEADER=%v && LEADER_FULL=${SELF_FULL/$HOSTNAME/$LEADER} && bash scripts/config-cascade.sh $LEADER_FULL $SELF_FULL %v verbs `ibv_devices | grep mlx | awk '{print $1}'` && echo I am server && sleep 2592000", leader, nodeID)
 		return []v1.Container{{
 			Image:           "poanpan/cascade:upgrade-cascade-gpu",
 			ImagePullPolicy: v1.PullIfNotPresent,
@@ -405,7 +435,7 @@ func getContainers(leader string, nodeID int, isServer bool) []v1.Container {
 			},
 		}}
 	} else {
-		command := fmt.Sprintf("SELF_FULL=`cat /etc/hosts | grep $HOSTNAME | awk '{print $2}'` && LEADER=%v && LEADER_FULL=${SELF_FULL/$HOSTNAME/$LEADER} && bash scripts/config-cascade.sh $LEADER_FULL $SELF_FULL %v verbs `ibv_devices | grep mlx | awk '{print $1}'` && /usr/sbin/sshd && echo I am client && sleep 2592000", leader, nodeID)
+		command := fmt.Sprintf("SELF_FULL=`cat /etc/hosts | grep $HOSTNAME | awk '{print $2}'` && LEADER=%v && LEADER_FULL=${SELF_FULL/$HOSTNAME/$LEADER} && bash scripts/config-cascade.sh $LEADER_FULL $SELF_FULL %v verbs `ibv_devices | grep mlx | awk '{print $1}'` && echo I am client && sleep 2592000", leader, nodeID)
 		return []v1.Container{{
 			// TODO: need a light client image
 			Image:           "poanpan/cascade:upgrade-cascade-gpu",
@@ -486,6 +516,7 @@ func (r *CascadeReconciler) createNodeManager(ctx context.Context, log logr.Logg
 		// allocate memory
 		typesStatus[typeSeq].SubgroupsStatus = make([]derechov1alpha1.CascadeSubgroupStatus, len(cascadeType.SubgroupsLayout))
 		subgroupsStatus := typesStatus[typeSeq].SubgroupsStatus
+		typesStatus[typeSeq].TypeAlias = cascadeType.TypeAlias
 
 		for subgroupSeq, subgroupLayout := range cascadeType.SubgroupsLayout {
 			shardCount := len(subgroupLayout.MinNodesByShard)
@@ -493,8 +524,10 @@ func (r *CascadeReconciler) createNodeManager(ctx context.Context, log logr.Logg
 				typeSeq, cascadeType.TypeAlias, subgroupSeq, shardCount))
 
 			subgroupsStatus[subgroupSeq].ShardCount = shardCount
-			subgroupsStatus[subgroupSeq].AssignedNodeIdByShard = make([][]int, shardCount)
 			subgroupsStatus[subgroupSeq].SizeByShard = make([]int, shardCount)
+
+			// Remain this field empty. If we create array with nil element, this will trigger `Invalid value: \"null\": status.typesStatus.subgroupStatus.assignedNodeIdByShard in body must be of type array: \"null\"` in r.Status.Update()
+			// subgroupsStatus[subgroupSeq].AssignedNodeIdByShard = make([][]int, shardCount)
 
 			// if the user assigned reserved node_ids
 			if len(subgroupLayout.ReservedNodeIdByShard) == shardCount {
@@ -560,6 +593,6 @@ func (r *CascadeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&derechov1alpha1.Cascade{}).
 		Owns(&v1.Pod{}).
 		Owns(&v1.Service{}).
-		// Owns(&derechov1alpha1.CascadeNodeManager{}).
+		Owns(&derechov1alpha1.CascadeNodeManager{}).
 		Complete(r)
 }
