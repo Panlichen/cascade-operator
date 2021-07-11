@@ -95,6 +95,7 @@ spec:
             - typesSpec
             type: object
           status:
+            description: CascadeNodeManagerStatus maintains running information.
             properties:
               leaderID:
                 description: leaderID is the leader id for this Cascade
@@ -125,8 +126,9 @@ spec:
                           for shards in a subgroup
                         properties:
                           assignedNodeIdByShard:
-                            description: assignedNodeIdByShard is assignedNodeId for
-                              each shard, omitted in spec, maintained in status
+                            description: 'TODO: manage this in ViewManager with View
+                              ID? assignedNodeIdByShard is assignedNodeId for each
+                              shard, omitted in spec, maintained in status'
                             items:
                               items:
                                 type: integer

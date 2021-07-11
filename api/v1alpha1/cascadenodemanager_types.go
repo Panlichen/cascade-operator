@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -57,6 +58,8 @@ type CascadeNodeManagerSpec struct {
 type CascadeSubgroupStatus struct {
 	// shardCount is the number of shards in this subgroup
 	ShardCount int `json:"shardCount,omitempty"`
+
+	// TODO: manage this in ViewManager with View ID?
 	// assignedNodeIdByShard is assignedNodeId for each shard, omitted in spec, maintained in status
 	AssignedNodeIdByShard [][]int `json:"assignedNodeIdByShard,omitempty"`
 	// sizeByShard is the current size of every shard in current subgroup
@@ -70,6 +73,39 @@ type CascadeTypeStatus struct {
 	SubgroupsStatus []CascadeSubgroupStatus `json:"subgroupStatus"`
 }
 
+// PodMetrics maintains metric collected from MetricServer & Prometheus for a single node.
+// CascadeNodeManagerStatus holds a map[string]PodMetrics, the key of which is selected by label related to current Cascade.
+type PodMetrics struct {
+}
+
+type MachineMetrics struct {
+	// machineIP is machineIP
+	MachineIP string `json:"machineIP"`
+
+	// memoryTotal is from resource nodes.v1
+	MemoryTotal resource.Quantity `json:"memoryTotal"`
+	// memoryAvailable is node_memory_MemAvailable_bytes metric from prometheus
+	MemoryAvaiable resource.Quantity `json:"memoryAvailable"`
+	// memoryUsage is from usage.memory of resource nodes.metrics.k8s.io
+	MemoryUsage resource.Quantity `json:"memoryUsage"`
+
+	// cpuTotal is from resource nodes.v1
+	CPUTotal resource.Quantity `json:"cpuTotal"`
+	// cpuLoad1 is node_load1 metric from prometheus
+	CPULoad1 float64 `json:"cpuLoad1"`
+	// cpuLoad1 is node_load1 metric from prometheus
+	CPULoad5 float64 `json:"cpuLoad5"`
+	// cpuLoad1 is node_load1 metric from prometheus
+	CPULoad15 float64 `json:"cpuLoad15"`
+	// cpuUsage is from usage.cpu of resource nodes.metrics.k8s.io
+	CPUUsage resource.Quantity `json:"cpuUsage"`
+
+	// TODO: GPU metrics
+
+	// TODO: Infiniband metrics
+}
+
+// CascadeNodeManagerStatus maintains running information.
 type CascadeNodeManagerStatus struct {
 	TypesStatus []CascadeTypeStatus `json:"typesStatus"`
 

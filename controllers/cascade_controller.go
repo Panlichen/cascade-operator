@@ -44,6 +44,9 @@ type CascadeReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
 	NodeManagerMap map[string]*derechov1alpha1.CascadeNodeManager
+	// MachinesMetrics holds a map[string]MachineMetrics, the key is nodeName
+	// MachineMetrics maintains machine metric collected from MetricServer & Prometheus (including GPU metrics)
+	MachinesMetrics map[string]*derechov1alpha1.MachineMetrics `json:"machinesMetrics,omitempty"`
 }
 
 const (
@@ -59,6 +62,7 @@ const (
 //+kubebuilder:rbac:groups=derecho.poanpan,resources=cascadenodemanagers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=derecho.poanpan,resources=cascadenodemanagers/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="metrics.k8s.io",resources=nodes,verbs=get;list;watch;create;update;patch;delete
@@ -588,6 +592,9 @@ func (r *CascadeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// TODO: start prometheus and layout watcher here.
 
 	r.NodeManagerMap = make(map[string]*derechov1alpha1.CascadeNodeManager)
+	r.MachinesMetrics = make(map[string]*derechov1alpha1.MachineMetrics)
+
+	go r.observeAndSchedule()
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&derechov1alpha1.Cascade{}).
