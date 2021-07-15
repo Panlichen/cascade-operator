@@ -76,6 +76,27 @@ type CascadeTypeStatus struct {
 // PodMetrics maintains metric collected from MetricServer & Prometheus for a single node.
 // CascadeNodeManagerStatus holds a map[string]PodMetrics, the key of which is selected by label related to current Cascade.
 type PodMetrics struct {
+	// cpuRequest is cpuRequest
+	CPURequest resource.Quantity `json:"cpuRequest"`
+	// memoryRequest is memoryRequest
+	MemoryRequest resource.Quantity `json:"memoryRequest"`
+	// cpuLimit is cpuLimit
+	CPULimit resource.Quantity `json:"cpuLimit"`
+	// memoryLimit is memoryLimit
+	MemoryLimit resource.Quantity `json:"memoryLimit"`
+
+	// cpuUsage is from usage.cpu of resource pods.metrics.k8s.io, and sums up all containers
+	CPUUsage resource.Quantity `json:"cpuUsage"`
+	// memoryUsage is from usage.memory of resource pods.metrics.k8s.io, and sums up all containers
+	MemoryUsage resource.Quantity `json:"memoryUsage"`
+
+	// float{32,64} unsupported by kubernetes
+	// cpuUsagePercentage is cpuUsagePercentage
+	// CPUUsagePercentage float32 `json:"cpuUsagePercentage"`
+	// memoryUsagePercentage is memoryUsagePercentage
+	// MemoryUsagePercentage float32 `json:"memoryUsagePercentage"`
+
+	// TODO: add gpu and infiniband metrics
 }
 
 type MachineMetrics struct {
@@ -86,8 +107,12 @@ type MachineMetrics struct {
 	MemoryTotal resource.Quantity `json:"memoryTotal"`
 	// memoryAvailable is node_memory_MemAvailable_bytes metric from prometheus
 	MemoryAvaiable resource.Quantity `json:"memoryAvailable"`
+	// memoryAvaiablePercentage is memoryAvaiablePercentage
+	MemoryAvaiablePercentage float64 `json:"memoryAvaiablePercentage"`
 	// memoryUsage is from usage.memory of resource nodes.metrics.k8s.io
 	MemoryUsage resource.Quantity `json:"memoryUsage"`
+	// memoryUsagePercentage is memoryUsagePercentage
+	MemoryUsagePercentage float64 `json:"memoryUsagePercentage"`
 
 	// cpuTotal is from resource nodes.v1
 	CPUTotal resource.Quantity `json:"cpuTotal"`
@@ -99,6 +124,8 @@ type MachineMetrics struct {
 	CPULoad15 float64 `json:"cpuLoad15"`
 	// cpuUsage is from usage.cpu of resource nodes.metrics.k8s.io
 	CPUUsage resource.Quantity `json:"cpuUsage"`
+	// cpuUsagePercentage is cpuUsagePercentage
+	CPUUsagePercentage float64 `json:"cpuUsagePercentage"`
 
 	// TODO: GPU metrics
 
@@ -106,8 +133,11 @@ type MachineMetrics struct {
 }
 
 // CascadeNodeManagerStatus maintains running information.
+// TODO: if the item of an array or the value of a map is a sturct, should we use pointer to make the memory tidy?
 type CascadeNodeManagerStatus struct {
 	TypesStatus []CascadeTypeStatus `json:"typesStatus"`
+
+	PodsMetrics map[string]*PodMetrics `json:"PodMetrics"`
 
 	// TODO: add some filed to manage node_ids reserved for overlapping after we know clearly how to make use of overlapped shards.
 

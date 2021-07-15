@@ -1,0 +1,14 @@
+[
+    {
+        "type_alias":   "CascadeMetadataService"
+    },
+    {
+        "type_alias":   "VolatileCascadeStoreWithStringKey"
+    },
+    {
+        "type_alias":   "PersistentCascadeStoreWithStringKey"
+    },
+    {
+        "type_alias":   "TriggerCascadeNoStoreWithStringKey"
+    }
+]

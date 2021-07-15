@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inf-loop-py
+data:
+  inf-loop.py: |
+    while True:
+      i = 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inf-loop
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: inf-loop
+  template:
+    metadata:
+      labels:
+        app: inf-loop
+    spec:
+      nodeName: node0
+      volumes:
+      - name: inf-loop-py
+        configMap:
+          name: inf-loop-py
+          items:
+          - key: inf-loop.py
+            path: inf-loop.py
+      containers:
+      - name: worker
+        image: python
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: "1000m"
+          limits:
+            cpu: "1000m"
+        command: ["python", "/work/inf-loop.py"]
+        volumeMounts:
+        - name: inf-loop-py
+          mountPath: /work 

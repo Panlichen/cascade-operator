@@ -50,9 +50,11 @@ type CascadeReconciler struct {
 }
 
 const (
-	selectorKey      string = "cascadeName"
-	cascadeFinalizer string = "derecho.poanpan"
+	selectorKey      string = "app.kubernetes.io/instance"
+	cascadeFinalizer string = "cascadeFinalizer"
 	volumeName       string = "layout-and-cfg-template"
+	appKey           string = "app.kubernetes.io/name"
+	appValue         string = "cascade.derecho"
 )
 
 //+kubebuilder:rbac:groups=derecho.poanpan,resources=cascades,verbs=get;list;watch;create;update;patch;delete
@@ -272,11 +274,12 @@ func (r *CascadeReconciler) createHeadlessService(ctx context.Context, log logr.
 	// create a headless service to provide fqdn
 	serviceSelector := make(map[string]string)
 	serviceSelector[selectorKey] = cascade.Name
+	serviceLabel := labelsForCascade(cascade.Name)
 	headlessService := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cascade.Name,
 			Namespace: cascade.Namespace,
-			Labels:    serviceSelector,
+			Labels:    serviceLabel,
 		},
 		Spec: v1.ServiceSpec{
 			Selector:  serviceSelector,
@@ -297,8 +300,7 @@ func (r *CascadeReconciler) createHeadlessService(ctx context.Context, log logr.
 func (r *CascadeReconciler) createPods(ctx context.Context, log logr.Logger, createCnt int, cascade *derechov1alpha1.Cascade, isServer bool) error {
 	// TODO: here we use the un-reserved nodes directly. After we determine how to use reserved and overlapped node ids, we need to redesign this function
 	nodeID := r.NodeManagerMap[cascade.Name].Status.NextNodeIdToAssign
-	serviceSelector := make(map[string]string)
-	serviceSelector[selectorKey] = cascade.Name
+	podLabel := labelsForCascade(cascade.Name)
 
 	sriovAnnotation := make(map[string]string)
 	sriovAnnotation["k8s.v1.cni.cncf.io/networks"] = "sriov-net"
@@ -318,7 +320,7 @@ func (r *CascadeReconciler) createPods(ctx context.Context, log logr.Logger, cre
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        podName,
 				Namespace:   cascade.Namespace,
-				Labels:      serviceSelector,
+				Labels:      podLabel,
 				Annotations: sriovAnnotation,
 			},
 			Spec: v1.PodSpec{
@@ -329,6 +331,7 @@ func (r *CascadeReconciler) createPods(ctx context.Context, log logr.Logger, cre
 				Volumes: []v1.Volume{{
 					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
+						// Use the configmap provided by user in yaml.
 						ConfigMap: &v1.ConfigMapVolumeSource{
 							LocalObjectReference: v1.LocalObjectReference{
 								Name: cascade.Spec.ConfigMapFinder.Name,
@@ -512,6 +515,7 @@ func (r *CascadeReconciler) createNodeManager(ctx context.Context, log logr.Logg
 	numTypes := len(r.NodeManagerMap[cascadeInfo.Name].Spec.TypesSpec)
 	r.NodeManagerMap[cascadeInfo.Name].Status.TypesStatus = make([]derechov1alpha1.CascadeTypeStatus, numTypes)
 	typesStatus := r.NodeManagerMap[cascadeInfo.Name].Status.TypesStatus
+	r.NodeManagerMap[cascadeInfo.Name].Status.PodsMetrics = make(map[string]*derechov1alpha1.PodMetrics)
 
 	maxReservedNodeId := -1
 	leastRequiredLogicalNodes := 0
@@ -574,7 +578,7 @@ func (r *CascadeReconciler) createNodeManager(ctx context.Context, log logr.Logg
 // labelsForCascade returns the labels for selecting the resources
 // belonging to the given cascade CR name.
 func labelsForCascade(name string) map[string]string {
-	return map[string]string{selectorKey: name}
+	return map[string]string{selectorKey: name, appKey: appValue}
 }
 
 // getPodNames returns the pod names of the array of pods passed in

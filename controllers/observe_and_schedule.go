@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	derechov1alpha1 "github.com/Panlichen/cascade-operator/api/v1alpha1"
@@ -79,7 +81,6 @@ func (r *CascadeReconciler) getMahcinesMetrics(ctx context.Context, log logr.Log
 	cpuLoad5JsonStr, _ := getJsonReplyFromProm(cpuLoad5, log)
 	cpuLoad15JsonStr, _ := getJsonReplyFromProm(cpuLoad15, log)
 
-	// TODO: refine the format of metrics with resource.Quantity type
 	for _, machine := range machineList.Items {
 		if _, ok := r.MachinesMetrics[machine.Name]; !ok {
 			r.MachinesMetrics[machine.Name] = &derechov1alpha1.MachineMetrics{}
@@ -91,13 +92,21 @@ func (r *CascadeReconciler) getMahcinesMetrics(ctx context.Context, log logr.Log
 			}
 
 			r.MachinesMetrics[machine.Name].CPUTotal = machine.Status.Capacity.Cpu().DeepCopy()
+			(&r.MachinesMetrics[machine.Name].CPUTotal).SetMilli((&r.MachinesMetrics[machine.Name].CPUTotal).Value())
 			r.MachinesMetrics[machine.Name].MemoryTotal = machine.Status.Capacity.Memory().DeepCopy()
+			(&r.MachinesMetrics[machine.Name].MemoryTotal).SetMilli((&r.MachinesMetrics[machine.Name].MemoryTotal).Value())
 		}
 		// query metrics from metrics server(MS)
 		machineMetricFromMS := &metricsv1beta1.NodeMetrics{}
 		r.Get(ctx, types.NamespacedName{Name: machine.Name, Namespace: ""}, machineMetricFromMS)
-		r.MachinesMetrics[machine.Name].CPUUsage = machineMetricFromMS.Usage.Cpu().DeepCopy()
+
 		r.MachinesMetrics[machine.Name].MemoryUsage = machineMetricFromMS.Usage.Memory().DeepCopy()
+		(&r.MachinesMetrics[machine.Name].MemoryUsage).SetMilli((&r.MachinesMetrics[machine.Name].MemoryUsage).Value())
+		r.MachinesMetrics[machine.Name].MemoryUsagePercentage = float64((&r.MachinesMetrics[machine.Name].MemoryUsage).Value()) / float64((&r.MachinesMetrics[machine.Name].MemoryTotal).Value())
+
+		r.MachinesMetrics[machine.Name].CPUUsage = machineMetricFromMS.Usage.Cpu().DeepCopy()
+		(&r.MachinesMetrics[machine.Name].CPUUsage).SetMilli((&r.MachinesMetrics[machine.Name].CPUUsage).Value())
+		r.MachinesMetrics[machine.Name].CPUUsagePercentage = float64((&r.MachinesMetrics[machine.Name].CPUUsage).Value()) / float64((&r.MachinesMetrics[machine.Name].CPUTotal).Value())
 
 		// parse metrics from prometheus
 		// for coding convenience, memoryAvailableJsonStr and other metrics are kind of “asymmetrical”
@@ -113,6 +122,8 @@ func (r *CascadeReconciler) getMahcinesMetrics(ctx context.Context, log logr.Log
 
 				memoryAvailableValueArray := gjson.Get(memoryAvailableJsonStr, valuePath).Array()
 				r.MachinesMetrics[machine.Name].MemoryAvaiable = resource.MustParse(memoryAvailableValueArray[1].String())
+				(&r.MachinesMetrics[machine.Name].MemoryAvaiable).SetMilli((&r.MachinesMetrics[machine.Name].MemoryAvaiable).Value())
+				r.MachinesMetrics[machine.Name].MemoryAvaiablePercentage = float64((&r.MachinesMetrics[machine.Name].MemoryAvaiable).Value()) / float64((&r.MachinesMetrics[machine.Name].MemoryTotal).Value())
 
 				cpuLoad1ValueArray := gjson.Get(cpuLoad1JsonStr, valuePath).Array()
 				r.MachinesMetrics[machine.Name].CPULoad1 = cpuLoad1ValueArray[1].Float()
@@ -128,7 +139,64 @@ func (r *CascadeReconciler) getMahcinesMetrics(ctx context.Context, log logr.Log
 	}
 }
 
+// TODO: handel errors, just look better
+func (r *CascadeReconciler) getPodMetrics(ctx context.Context, log logr.Logger) {
+	// List all cascade pods
+	podList := &v1.PodList{}
+	appLabel := make(map[string]string)
+	appLabel[appKey] = appValue
+	listOpts := []client.ListOption{
+		client.MatchingLabels(appLabel),
+	}
+	if err := r.List(ctx, podList, listOpts...); err != nil {
+		log.Error(err, "[getPodMetrics] Failed to list cascade pods")
+		// TODO: return err
+	}
+	for _, pod := range podList.Items {
+		cascadeInstance, ok := pod.Labels[selectorKey]
+		if !ok {
+			log.Error(goerrors.New("pod does not has label"), fmt.Sprintf("Pod %v does not has label %v.", pod.Name, selectorKey))
+		}
+		cascadeNodeManager, ok := r.NodeManagerMap[cascadeInstance]
+		if !ok {
+			log.Error(goerrors.New("does not has cascade"), fmt.Sprintf("Do not know a cascade %v.", cascadeInstance))
+		}
+		podMetrics, ok := cascadeNodeManager.Status.PodsMetrics[pod.Name]
+		if !ok {
+			// current cascade collect current pod's info for the first time
+			cascadeNodeManager.Status.PodsMetrics[pod.Name] = &derechov1alpha1.PodMetrics{}
+			podMetrics = cascadeNodeManager.Status.PodsMetrics[pod.Name]
+
+			for _, container := range pod.Spec.Containers {
+				(&podMetrics.CPURequest).Add(container.Resources.Requests.Cpu().DeepCopy())
+				(&podMetrics.CPURequest).SetMilli((&podMetrics.CPURequest).Value())
+
+				(&podMetrics.MemoryRequest).Add(container.Resources.Requests.Memory().DeepCopy())
+				(&podMetrics.MemoryRequest).SetMilli((&podMetrics.MemoryRequest).Value())
+
+				(&podMetrics.CPULimit).Add(container.Resources.Limits.Cpu().DeepCopy())
+				(&podMetrics.CPULimit).SetMilli((&podMetrics.CPULimit).Value())
+				(&podMetrics.MemoryLimit).Add(container.Resources.Limits.Memory().DeepCopy())
+				(&podMetrics.MemoryLimit).SetMilli((&podMetrics.MemoryLimit).Value())
+			}
+		}
+		podMetricFromMS := &metricsv1beta1.PodMetrics{}
+		r.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, podMetricFromMS)
+		for _, containerMetric := range podMetricFromMS.Containers {
+			(&podMetrics.CPUUsage).Add(containerMetric.Usage.Cpu().DeepCopy())
+			(&podMetrics.CPUUsage).SetMilli((&podMetrics.CPUUsage).Value())
+
+			(&podMetrics.MemoryUsage).Add(containerMetric.Usage.Memory().DeepCopy())
+			(&podMetrics.MemoryUsage).SetMilli((&podMetrics.MemoryUsage).Value())
+
+			// cpuUsagePercentage := float32((&podMetrics.CPUUsage).Value()) / float32((&podMetrics.CPULimit).Value())
+			// pmemoryUsagePercentage := float32((&podMetrics.MemoryUsage).Value()) / float32((&podMetrics.MemoryLimit).Value())
+		}
+	}
+}
+
 // Run forever, quits when main() quits.
+// TODO: handel errors, just look better
 func (r *CascadeReconciler) observeAndSchedule() {
 	for {
 		ctx := context.Background()
@@ -136,7 +204,14 @@ func (r *CascadeReconciler) observeAndSchedule() {
 		time.Sleep(5 * time.Second)
 		r.getMahcinesMetrics(ctx, log)
 		for name, value := range r.MachinesMetrics {
+			// if we really want to print resource.Quantity value, we need to transfer it with Value() API.
 			log.Info(fmt.Sprintf("The Machines %v Metrics: %+v", name, *value))
+		}
+		r.getPodMetrics(ctx, log)
+		for cascadeName, nodeManager := range r.NodeManagerMap {
+			for podName, podMetrics := range nodeManager.Status.PodsMetrics {
+				log.Info(fmt.Sprintf("Pod %v of Cascade %v has metrics %+v", podName, cascadeName, podMetrics))
+			}
 		}
 	}
 }

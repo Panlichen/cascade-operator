@@ -95,8 +95,70 @@ spec:
             - typesSpec
             type: object
           status:
-            description: CascadeNodeManagerStatus maintains running information.
+            description: 'CascadeNodeManagerStatus maintains running information.
+              TODO: if the item of an array or the value of a map is a sturct, should
+              we use pointer to make the memory tidy?'
             properties:
+              PodMetrics:
+                additionalProperties:
+                  description: PodMetrics maintains metric collected from MetricServer
+                    & Prometheus for a single node. CascadeNodeManagerStatus holds
+                    a map[string]PodMetrics, the key of which is selected by label
+                    related to current Cascade.
+                  properties:
+                    cpuLimit:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: cpuLimit is cpuLimit
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    cpuRequest:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: cpuRequest is cpuRequest
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    cpuUsage:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: cpuUsage is from usage.cpu of resource pods.metrics.k8s.io,
+                        and sums up all containers
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    memoryLimit:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: memoryLimit is memoryLimit
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    memoryRequest:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: memoryRequest is memoryRequest
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    memoryUsage:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: memoryUsage is from usage.memory of resource pods.metrics.k8s.io,
+                        and sums up all containers
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                  required:
+                  - cpuLimit
+                  - cpuRequest
+                  - cpuUsage
+                  - memoryLimit
+                  - memoryRequest
+                  - memoryUsage
+                  type: object
+                type: object
               leaderID:
                 description: leaderID is the leader id for this Cascade
                 type: integer
@@ -155,6 +217,7 @@ spec:
                   type: object
                 type: array
             required:
+            - PodMetrics
             - leaderID
             - leastRequiredLogicalNodes
             - maxLogicalNodes

@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cascade
+spec:
+  selector:
+    name: fqdn-tester
+  clusterIP: None
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod0
+  labels:
+    name: fqdn-tester
+    node-id: "0"
+spec:
+  hostname: test-pod0
+  subdomain: cascade
+  containers:
+  - name: samplepod
+    command:
+      - "sleep"
+    args:
+      - "2592000" # 3600 * 24 * 30
+    image: poanpan/ubuntu-net-rdma
+  nodeName: node0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod1
+  labels:
+    name: fqdn-tester
+    node-id: "1"
+spec:
+  hostname: test-pod1
+  subdomain: cascade
+  containers:
+  - name: samplepod
+    command:
+      - "sleep"
+    args:
+      - "2592000" # 3600 * 24 * 30
+    image: poanpan/ubuntu-net-rdma
+  nodeName: node1

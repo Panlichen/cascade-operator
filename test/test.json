@@ -1,0 +1,50 @@
+[
+    {
+        "type_alias":   "CascadeMetadataService",
+        "layout":       [
+                            {
+                                "min_nodes_by_shard": [1],
+                                "max_nodes_by_shard": [1],
+                                "reserved_node_id_by_shard": [[1, 2, 3]],
+                                "delivery_modes_by_shard": ["Ordered"],
+                                "profiles_by_shard": ["DEFAULT"]
+                            }
+                        ]
+    },
+    {
+        "type_alias":   "VolatileCascadeStoreWithStringKey",
+        "layout":       [
+                            {
+                                "min_nodes_by_shard": [1],
+                                "max_nodes_by_shard": [2],
+                                "reserved_node_id_by_shard": [[1, 2, 3]],
+                                "delivery_modes_by_shard": ["Ordered"],
+                                "profiles_by_shard": ["DEFAULT"]
+                            }
+                        ]
+    },
+    {
+        "type_alias":   "PersistentCascadeStoreWithStringKey",
+        "layout":       [
+                            {
+                                "min_nodes_by_shard": [1],
+                                "max_nodes_by_shard": [1],
+                                "reserved_node_id_by_shard": [[1, 2, 3]],
+                                "delivery_modes_by_shard": ["Ordered"],
+                                "profiles_by_shard": ["DEFAULT"]
+                            }
+                        ]
+    },
+    {
+        "type_alias":   "TriggerCascadeNoStoreWithStringKey",
+        "layout":       [
+                            {
+                                "min_nodes_by_shard": [1],
+                                "max_nodes_by_shard": [1],
+                                "reserved_node_id_by_shard": [[1, 2, 3]],
+                                "delivery_modes_by_shard": ["Ordered"],
+                                "profiles_by_shard": ["DEFAULT"]
+                            }
+                        ]
+    }
+]
