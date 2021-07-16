@@ -49,6 +49,8 @@ const (
 	cpuLoad5        = "node_load5"
 	cpuLoad15       = "node_load15"
 
+	scheduleInterval = 5 * time.Second
+
 // metrics about pods:
 )
 
@@ -213,5 +215,7 @@ func (r *CascadeReconciler) observeAndSchedule() {
 				log.Info(fmt.Sprintf("Pod %v of Cascade %v has metrics %+v", podName, cascadeName, podMetrics))
 			}
 		}
+
+		time.Sleep(scheduleInterval)
 	}
 }

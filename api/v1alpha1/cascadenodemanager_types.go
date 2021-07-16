@@ -90,6 +90,9 @@ type PodMetrics struct {
 	// memoryUsage is from usage.memory of resource pods.metrics.k8s.io, and sums up all containers
 	MemoryUsage resource.Quantity `json:"memoryUsage"`
 
+	// assignedVF is the name of VF assigned to the current Pod by sriov-network-opertor
+	AssignedVF string `json:"assignedVF"`
+
 	// float{32,64} unsupported by kubernetes
 	// cpuUsagePercentage is cpuUsagePercentage
 	// CPUUsagePercentage float32 `json:"cpuUsagePercentage"`
