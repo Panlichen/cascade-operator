@@ -55,6 +55,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - derecho.poanpan
   resources:
   - cascadenodemanagers

@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
 	goerrors "errors"
 	"fmt"
@@ -30,7 +31,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -53,6 +59,12 @@ const (
 
 // metrics about pods:
 )
+
+var getVFNameCmd = []string{
+	"sh",
+	"-c",
+	"ibv_devices | grep mlx | awk '{print $1}'",
+}
 
 func getJsonReplyFromProm(metricName string, log logr.Logger) (string, error) {
 	url := promFQDN + metricName
@@ -141,8 +153,49 @@ func (r *CascadeReconciler) getMahcinesMetrics(ctx context.Context, log logr.Log
 	}
 }
 
+// refer to http://www.liangxiaolei.fun/2020/03/12/k8s%E7%AC%94%E8%AE%B0-client-go%E5%AE%9E%E7%8E%B0exec/
+func getVFName(clusterConfig *restclient.Config, k8sClient *kubernetes.Clientset, log logr.Logger, namespace, podName, containerName string) string {
+	const tty = false
+
+	req := k8sClient.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).SubResource("exec").Param("container", containerName)
+	req.VersionedParams(
+		&v1.PodExecOptions{
+			Command: getVFNameCmd,
+			Stdin:   false,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     tty,
+		},
+		scheme.ParameterCodec,
+	)
+	var stdout, stderr bytes.Buffer
+	exec, err := remotecommand.NewSPDYExecutor(clusterConfig, "POST", req.URL())
+	if err != nil {
+		// Error can happen if the container is not created yet.
+		log.Error(err, fmt.Sprintf("fail to get VF Name for container %v pod %v via exec", containerName, podName))
+	}
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  nil,
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if err != nil {
+		log.Error(err, fmt.Sprintf("fail to get VF Name for container %v pod %v via exec, in step exec.Stream", containerName, podName))
+	}
+	return strings.TrimSpace(stdout.String())
+}
+
 // TODO: handel errors, just look better
-func (r *CascadeReconciler) getPodMetrics(ctx context.Context, log logr.Logger) {
+func (r *CascadeReconciler) getPodMetrics(ctx context.Context, log logr.Logger, clusterConfig *restclient.Config) {
+	// prepare the k8sClient to get VF name of a pod via exec
+	k8sClient, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		log.Error(err, "failed to create k8sClient")
+	}
+
 	// List all cascade pods
 	podList := &v1.PodList{}
 	appLabel := make(map[string]string)
@@ -182,6 +235,14 @@ func (r *CascadeReconciler) getPodMetrics(ctx context.Context, log logr.Logger) 
 				(&podMetrics.MemoryLimit).SetMilli((&podMetrics.MemoryLimit).Value())
 			}
 		}
+
+		if podMetrics.AssignedVF == "" {
+			for _, container := range pod.Spec.Containers {
+				// We should just have one container per pod, so just use a single string. Using []string is complicate and useless for now
+				podMetrics.AssignedVF = getVFName(clusterConfig, k8sClient, log, pod.Namespace, pod.Name, container.Name)
+			}
+		}
+
 		podMetricFromMS := &metricsv1beta1.PodMetrics{}
 		r.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, podMetricFromMS)
 		for _, containerMetric := range podMetricFromMS.Containers {
@@ -200,6 +261,7 @@ func (r *CascadeReconciler) getPodMetrics(ctx context.Context, log logr.Logger) 
 // Run forever, quits when main() quits.
 // TODO: handel errors, just look better
 func (r *CascadeReconciler) observeAndSchedule() {
+	clusterConfig := ctrl.GetConfigOrDie()
 	for {
 		ctx := context.Background()
 		log := ctrllog.FromContext(ctx)
@@ -209,7 +271,7 @@ func (r *CascadeReconciler) observeAndSchedule() {
 			// if we really want to print resource.Quantity value, we need to transfer it with Value() API.
 			log.Info(fmt.Sprintf("The Machines %v Metrics: %+v", name, *value))
 		}
-		r.getPodMetrics(ctx, log)
+		r.getPodMetrics(ctx, log, clusterConfig)
 		for cascadeName, nodeManager := range r.NodeManagerMap {
 			for podName, podMetrics := range nodeManager.Status.PodsMetrics {
 				log.Info(fmt.Sprintf("Pod %v of Cascade %v has metrics %+v", podName, cascadeName, podMetrics))

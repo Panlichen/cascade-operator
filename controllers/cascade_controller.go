@@ -66,6 +66,7 @@ const (
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=pods/exec,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="metrics.k8s.io",resources=nodes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get;list;watch;create;update;patch;delete
@@ -266,6 +267,9 @@ func (r *CascadeReconciler) finalizeCascade(ctx context.Context, log logr.Logger
 		return err
 	}
 	log.Info(fmt.Sprintf("Delete cascadeNodeManager %v", namespacedName))
+
+	// Delete from local map
+	delete(r.NodeManagerMap, cascade.Name)
 
 	return nil
 }
