@@ -99,7 +99,28 @@ spec:
               TODO: if the item of an array or the value of a map is a sturct, should
               we use pointer to make the memory tidy?'
             properties:
-              PodMetrics:
+              leaderID:
+                description: leaderID is the leader id for this Cascade
+                type: integer
+              leaderIP:
+                description: leaderIP is the leader ip(or fqdn) for this Cascade
+                type: string
+              leastRequiredLogicalNodes:
+                description: leastRequiredLogicalNodes is the sum of min_nodes for
+                  all shards
+                type: integer
+              maxLogicalNodes:
+                description: maxLogicalNodes is the sum of min_nodes for all shards
+                type: integer
+              maxReservedNodeId:
+                description: maxReservedNodeId is the max reserved node id calculated
+                  from configMap
+                type: integer
+              nextNodeIdToAssign:
+                description: nextNodeIdToAssign is the next non-reserved node id to
+                  assign
+                type: integer
+              podsMetrics:
                 additionalProperties:
                   description: PodMetrics maintains metric collected from MetricServer
                     & Prometheus for a single node. CascadeNodeManagerStatus holds
@@ -164,27 +185,6 @@ spec:
                   - memoryUsage
                   type: object
                 type: object
-              leaderID:
-                description: leaderID is the leader id for this Cascade
-                type: integer
-              leaderIP:
-                description: leaderIP is the leader ip(or fqdn) for this Cascade
-                type: string
-              leastRequiredLogicalNodes:
-                description: leastRequiredLogicalNodes is the sum of min_nodes for
-                  all shards
-                type: integer
-              maxLogicalNodes:
-                description: maxLogicalNodes is the sum of min_nodes for all shards
-                type: integer
-              maxReservedNodeId:
-                description: maxReservedNodeId is the max reserved node id calculated
-                  from configMap
-                type: integer
-              nextNodeIdToAssign:
-                description: nextNodeIdToAssign is the next non-reserved node id to
-                  assign
-                type: integer
               typesStatus:
                 items:
                   description: CascadeTypeStatus maintains Cascade node allocation

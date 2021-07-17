@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	derechov1alpha1 "github.com/Panlichen/cascade-operator/api/v1alpha1"
@@ -56,10 +57,15 @@ func (r *CascadeReconciler) listenUpdateView() {
 			}
 		}
 		log.Info(fmt.Sprintf("After process request from the leader of Cascade %v, it's Status is now %+v", cascadeName, r.NodeManagerMap[cascadeName].Status))
+		// TODO: Cannot update ViewID in the CR, don't know why. Maybe we have too many fields in CascadeNodeManagerStatus? Not very important now.
 		err = r.Status().Update(ctx, r.NodeManagerMap[cascadeName])
 		if err != nil {
 			log.Error(err, fmt.Sprintf("Fail to update CascadeNodeManager %v's status in listenUpdateView", cascadeName))
 		}
+
+		tempCascadeNodeManager := &derechov1alpha1.CascadeNodeManager{}
+		r.Get(ctx, types.NamespacedName{Name: cascadeName, Namespace: "default"}, tempCascadeNodeManager)
+		log.Info(fmt.Sprintf("the existing CascadeNodeManager resource is %+v", tempCascadeNodeManager))
 	}
 
 	http.HandleFunc("/", viewHandler)

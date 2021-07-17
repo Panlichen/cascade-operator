@@ -138,14 +138,14 @@ type MachineMetrics struct {
 // CascadeNodeManagerStatus maintains running information.
 // TODO: if the item of an array or the value of a map is a sturct, should we use pointer to make the memory tidy?
 type CascadeNodeManagerStatus struct {
-	// viewID is the view id of the Cascade
-	ViewID int `json:"viewID,omitempty"`
-
 	TypesStatus []CascadeTypeStatus `json:"typesStatus,omitempty"`
 
-	PodsMetrics map[string]*PodMetrics `json:"PodMetrics,omitempty"`
+	PodsMetrics map[string]*PodMetrics `json:"podsMetrics,omitempty"`
 
 	// TODO: add some filed to manage node_ids reserved for overlapping after we know clearly how to make use of overlapped shards.
+
+	// viewID is the view id of the Cascade
+	ViewID int `json:"viewID,omitempty"`
 
 	// maxReservedNodeId is the max reserved node id calculated from configMap
 	MaxReservedNodeId int `json:"maxReservedNodeId,omitempty"`
