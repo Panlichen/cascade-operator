@@ -167,6 +167,9 @@ spec:
               leaderID:
                 description: leaderID is the leader id for this Cascade
                 type: integer
+              leaderIP:
+                description: leaderIP is the leader ip(or fqdn) for this Cascade
+                type: string
               leastRequiredLogicalNodes:
                 description: leastRequiredLogicalNodes is the sum of min_nodes for
                   all shards
@@ -187,7 +190,7 @@ spec:
                   description: CascadeTypeStatus maintains Cascade node allocation
                     information during runtime
                   properties:
-                    subgroupStatus:
+                    subgroupsStatus:
                       items:
                         description: CascadeSubgroupStatus wraps status information
                           for shards in a subgroup
@@ -216,19 +219,11 @@ spec:
                     typeAlias:
                       description: typeAlias is the name for a type
                       type: string
-                  required:
-                  - subgroupStatus
-                  - typeAlias
                   type: object
                 type: array
-            required:
-            - PodMetrics
-            - leaderID
-            - leastRequiredLogicalNodes
-            - maxLogicalNodes
-            - maxReservedNodeId
-            - nextNodeIdToAssign
-            - typesStatus
+              viewID:
+                description: viewID is the view id of the Cascade
+                type: integer
             type: object
         required:
         - spec

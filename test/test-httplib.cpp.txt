@@ -1,0 +1,11 @@
+#include <httplib.h>
+#include <iostream>
+#include <string>
+
+int main(void)
+{
+    std::string str("Hello"); 
+    httplib::Client cli("view-listener.cascade-operator-system.svc.cluster.local", 3680);
+
+    cli.Post("/", str, "text/plain");
+}

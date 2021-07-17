@@ -603,6 +603,7 @@ func (r *CascadeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.MachinesMetrics = make(map[string]*derechov1alpha1.MachineMetrics)
 
 	go r.observeAndSchedule()
+	go r.listenUpdateView()
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&derechov1alpha1.Cascade{}).

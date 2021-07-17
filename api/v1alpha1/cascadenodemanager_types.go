@@ -69,8 +69,8 @@ type CascadeSubgroupStatus struct {
 // CascadeTypeStatus maintains Cascade node allocation information during runtime
 type CascadeTypeStatus struct {
 	// typeAlias is the name for a type
-	TypeAlias       string                  `json:"typeAlias"`
-	SubgroupsStatus []CascadeSubgroupStatus `json:"subgroupStatus"`
+	TypeAlias       string                  `json:"typeAlias,omitempty"`
+	SubgroupsStatus []CascadeSubgroupStatus `json:"subgroupsStatus,omitempty"`
 }
 
 // PodMetrics maintains metric collected from MetricServer & Prometheus for a single node.
@@ -138,26 +138,32 @@ type MachineMetrics struct {
 // CascadeNodeManagerStatus maintains running information.
 // TODO: if the item of an array or the value of a map is a sturct, should we use pointer to make the memory tidy?
 type CascadeNodeManagerStatus struct {
-	TypesStatus []CascadeTypeStatus `json:"typesStatus"`
+	// viewID is the view id of the Cascade
+	ViewID int `json:"viewID,omitempty"`
 
-	PodsMetrics map[string]*PodMetrics `json:"PodMetrics"`
+	TypesStatus []CascadeTypeStatus `json:"typesStatus,omitempty"`
+
+	PodsMetrics map[string]*PodMetrics `json:"PodMetrics,omitempty"`
 
 	// TODO: add some filed to manage node_ids reserved for overlapping after we know clearly how to make use of overlapped shards.
 
 	// maxReservedNodeId is the max reserved node id calculated from configMap
-	MaxReservedNodeId int `json:"maxReservedNodeId"`
+	MaxReservedNodeId int `json:"maxReservedNodeId,omitempty"`
 
 	// nextNodeIdToAssign is the next non-reserved node id to assign
-	NextNodeIdToAssign int `json:"nextNodeIdToAssign"`
+	NextNodeIdToAssign int `json:"nextNodeIdToAssign,omitempty"`
 
 	// leastRequiredLogicalNodes is the sum of min_nodes for all shards
-	LeastRequiredLogicalNodes int `json:"leastRequiredLogicalNodes"`
+	LeastRequiredLogicalNodes int `json:"leastRequiredLogicalNodes,omitempty"`
 
 	// maxLogicalNodes is the sum of min_nodes for all shards
-	MaxLogicalNodes int `json:"maxLogicalNodes"`
+	MaxLogicalNodes int `json:"maxLogicalNodes,omitempty"`
 
 	// leaderID is the leader id for this Cascade
-	LeaderID int `json:"leaderID"`
+	LeaderID int `json:"leaderID,omitempty"`
+
+	// leaderIP is the leader ip(or fqdn) for this Cascade
+	LeaderIP string `json:"leaderIP,omitempty"`
 }
 
 //+kubebuilder:object:root=true
