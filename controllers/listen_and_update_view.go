@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/types"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	derechov1alpha1 "github.com/Panlichen/cascade-operator/api/v1alpha1"
@@ -63,9 +62,6 @@ func (r *CascadeReconciler) listenUpdateView() {
 			log.Error(err, fmt.Sprintf("Fail to update CascadeNodeManager %v's status in listenUpdateView", cascadeName))
 		}
 
-		tempCascadeNodeManager := &derechov1alpha1.CascadeNodeManager{}
-		r.Get(ctx, types.NamespacedName{Name: cascadeName, Namespace: "default"}, tempCascadeNodeManager)
-		log.Info(fmt.Sprintf("the existing CascadeNodeManager resource is %+v", tempCascadeNodeManager))
 	}
 
 	http.HandleFunc("/", viewHandler)
