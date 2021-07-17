@@ -116,9 +116,12 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+	kubectl apply -f hack/view-listener-svc.yaml
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	kubectl delete -f hack/view-listener-svc.yaml
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
+
 
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
