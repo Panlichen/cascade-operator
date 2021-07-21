@@ -101,6 +101,7 @@ func (r *CascadeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if cascade.Status.LogicalServerSize == 0 {
+		log.Info("==== Step 0: Create for the first time ====")
 		// this means we are creating the Cascade for the first time, we need to create NodeManager structure manually.
 
 		// Parse the configMap, create pods and the headless service, allocate memory for CascadeReconciler.NodeManager
@@ -144,6 +145,17 @@ func (r *CascadeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 		log.Info(fmt.Sprintf("Create CR CascadeNodeManager %v with initial status", req.NamespacedName))
+
+		// Add finalizer for this CR
+		if !controllerutil.ContainsFinalizer(cascade, cascadeFinalizer) {
+			log.Info(fmt.Sprintf("Add finaller %v to Cascade %v", cascadeFinalizer, req.NamespacedName))
+			controllerutil.AddFinalizer(cascade, cascadeFinalizer)
+			err = r.Update(ctx, cascade)
+			if err != nil {
+				log.Error(err, fmt.Sprintf("Add Finalizer for cascade %v failed", req.NamespacedName))
+				return ctrl.Result{}, err
+			}
+		}
 	}
 
 	// Check if the Cascade instance is marked to be deleted, which is
@@ -151,7 +163,7 @@ func (r *CascadeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// TODO: May need to decide adjust the position logic about finalizer
 	isCascadeMarkedToBeDeleted := cascade.GetDeletionTimestamp() != nil
 	if isCascadeMarkedToBeDeleted {
-		log.Info(fmt.Sprintf("Invoke finaller for Cascade %v", req.NamespacedName))
+		log.Info(fmt.Sprintf("==== Step Final: Invoke finaller for Cascade %v ====", req.NamespacedName))
 		if controllerutil.ContainsFinalizer(cascade, cascadeFinalizer) {
 			// Run finalization logic for cascadeFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
@@ -171,17 +183,7 @@ func (r *CascadeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// TODO: delete corresponding CascadeNodeManager
 	}
 
-	// Add finalizer for this CR
-	if !controllerutil.ContainsFinalizer(cascade, cascadeFinalizer) {
-		log.Info(fmt.Sprintf("Add finaller %v to Cascade %v", cascadeFinalizer, req.NamespacedName))
-		controllerutil.AddFinalizer(cascade, cascadeFinalizer)
-		err = r.Update(ctx, cascade)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("Add Finalizer for cascade %v failed", req.NamespacedName))
-			return ctrl.Result{}, err
-		}
-	}
-
+	log.Info("==== Step 1: Create a Headless Service ====")
 	// var headlessService *v1.Service
 	// NOTE: cannot just declare a pointer, but need a real pointer for r.Get
 	headlessService := &v1.Service{}
@@ -190,6 +192,8 @@ func (r *CascadeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		log.Info(fmt.Sprintf("Create the Headless Service Cascade %v", cascade.Name))
 		r.createHeadlessService(ctx, log, cascade)
 	}
+
+	log.Info("==== Step2: Adjust the Num of Pods ====")
 
 	// TODO: Currently only support adding an arbitrary number of nodes, or delete the whole Cascade. Deleting an arbitrary number of nodes requires collaboration with the layout information in the Cascade application.
 
@@ -270,6 +274,7 @@ func (r *CascadeReconciler) finalizeCascade(ctx context.Context, log logr.Logger
 
 	// Delete from local map
 	delete(r.NodeManagerMap, cascade.Name)
+	log.Info(fmt.Sprintf("After delete and finalize, r.NodeManagerMap has length %v", len(r.NodeManagerMap)))
 
 	return nil
 }

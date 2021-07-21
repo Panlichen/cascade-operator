@@ -55,7 +55,7 @@ const (
 	cpuLoad5        = "node_load5"
 	cpuLoad15       = "node_load15"
 
-	scheduleInterval = 5 * time.Second
+	scheduleInterval = 30 * time.Second
 
 // metrics about pods:
 )
@@ -64,6 +64,7 @@ var getVFNameCmd = []string{
 	"sh",
 	"-c",
 	"ibv_devices | grep mlx | awk '{print $1}'",
+	// "echo $PCIDEVICE_OPENSHIFT_IO_MLX5_VF", // this is not OK, it returns PCI ID like 0000:63:01.4
 }
 
 func getJsonReplyFromProm(metricName string, log logr.Logger) (string, error) {
@@ -208,6 +209,12 @@ func (r *CascadeReconciler) getPodMetrics(ctx context.Context, log logr.Logger, 
 		// TODO: return err
 	}
 	for _, pod := range podList.Items {
+		if pod.GetDeletionTimestamp() != nil {
+			// ignore deleted pods.
+			// During developing controller, we create and delete Cascade with the same name many times, without this judgement, the deleted but not terminated pod will confuse our poor contoller.
+			log.Info("in getPodMetrics, Detect a deleted pod!")
+			continue
+		}
 		cascadeInstance, ok := pod.Labels[selectorKey]
 		if !ok {
 			log.Error(goerrors.New("pod does not has label"), fmt.Sprintf("Pod %v does not has label %v.", pod.Name, selectorKey))
